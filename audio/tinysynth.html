@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<body>
+	<h1>Tiny FM Synth</h1>
+	<div class="button-bar">
+		<button class="play">Play</button>
+		<button class="record">Record</button>
+		<button class="carrier-type">Cycle Carrier Type</button>
+	</div>
+	<pre></pre>
+</body>
+<script type="text/javascript">
+// this file implements frequency modulation synthesis tools for creating and
+// saving short audio files for game sound effects in a simple web api
+
+var ctx = new (window.AudioContext() || window.webkitAudioContext())();
+
+// length of the sound, in seconds
+var duration = 1.0;
+
+// the carrier frequency
+var Carrier = ctx.createOscillator();
+Carrier.type = 'sine';
+Carrier.frequency.value = '440';
+
+
+// the modulation frequency
+var Modulator = ctx.createOscillator();
+Modulator.type = 'sine';
+Modulator.frequency.value = '440';
+
+// defines the volume as a piece-wise linear function of time
+// initial and final value are required
+// array stores pairs (time, value) with time in [0,1]
+var Amplitude = {};
+Amplitude.initial = 1.0;
+Amplitude.final = 1.0;
+Amplitude.intermediates = [];
+Amplitude.intermediates.add({t: 0.0, v: 1.0});
+Amplitude.intermediates.add({t: 1.0, v: 1.0});
+
+// volume is controlled by a gain node
+// configure the value curve when the sound is played
+var Gain = ctx.createGain();
+Gain.gain.value = 0.0;
+
+// creating a sound is a simple chain:
+// modulator frequency drives carrier frequency
+Modulator.connect(Carrier.frequency);
+// volume is applied to resulting sound
+Carrier.connect(Gain);
+// gain output will be piped to speakers or file
+Modulator.start();
+Carrier.start();
+Gain.start();
+
+// sets the gain curve based on current amplitude setting
+// gain depends on currentTime, so this must be done just before playing
+function ApplyEnvelope()
+{
+	Gain.gain.cancelScheduledValues();
+
+    Gain.gain.value = Amplitude.initial;
+
+    for (var i = 0; i < Amplitude.intermediates.length; i++)
+    {
+    	Gain.gain.linearRampToValueAtTime(Amplitude.intermediates[i].v, ctx.currentTime + Amplitude.intermediates[i].t * duration);
+    }
+
+    Gain.gain.linearRampToValueAtTime(Amplitude.final, ctx.currentTime + duration);
+}
+
+// play the sound through speakers
+function Play()
+{
+    ApplyEnvelope();
+    Gain.connect(ctx.destination);
+}
+
+var playButton = document.querySelector('.play');
+playButton.onclick = Play;
+
+// record the sound to a local file
+function Record()
+{
+    ApplyEnvelope();
+
+    // Gain.connect( ????? )
+}
+
+var carrierType = document.querySelector('.carrier-type');
+carrierType.onclick = function() {
+	if (Carrier.type === 'sine')
+		Carrier.type = 'square';
+	else if (Carrier.type === 'square')
+		Carrier.type = 'triangle';
+	else if (Carrier.type === 'triangle')
+		Carrier.type = 'saw';
+	else if (Carrier.type === 'saw')
+		Carrier.type = 'sine';
+}
+
+var recordButton = document.querySelector('.record');
+recordButton.onclick = Record;
+</script>
+</html>
