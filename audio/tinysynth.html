@@ -2,6 +2,19 @@
 <html>
 <body>
 	<h1>Tiny FM Synth</h1>
+
+		tinysynth is a miniature frequency modulation (FM) synthesizer that runs entirely in your browser! You can use tinysynth to create short sounds to use as sound effects in games.
+
+		<br><br>
+
+		If you're not familiar with FM synthesis, you should probably start by reading the <a href="http://en.wikipedia.org/wiki/Frequency_modulation_synthesis">wikipedia page</a>. Basically, you choose a base sound (the carrier) and modify the carrier frequency according to another wave function (the modulator). tinysynth does this by connecting a WebAudio "OscillatorNode" to the frequency value of another Oscillator!
+
+		<br><br>
+
+		You can try it out below; choose a shape and a frequency for each wave, and click "Play" to hear a short sound. If you're not sure what values to pick, try starting with a musical tone for the carrier (the default is an A4 - 440 Hz sine wave) and keep in mind that you can get harmonic effects if your modulator frequency is a multiple of your carrier frequency, and atonal effects otherwise. You can also try using non-audio-rate (outside the 20-20k Hz audible range) modulator frequencies to create harsher sounds. (Tip: There is a constant gain applied to the modulator frequency. You can adjust this to increase or decrease how much the modulator changes the carrier frequency.)
+
+		<br><br>
+
 		<button class="play">Play</button>
 		<button class="record">Record</button><br>
 		Carrier Wave Shape:
@@ -19,13 +32,30 @@
 			<option value="square">Square</option>
 			<option value="tri">Triangle</option>
 		</select>
-		Modulator Frequency: <input id="modulator-freq" type="number" min=20 max=20000 value=440><br>	
-		Duration: <input id="duration" type="number" min=0.0 max=10.0 step=0.5 value=1.0>
-		Attack: <input id="attack-time" type="number" min=0.0 max=1.0 value=0.2 step=0.05>
-		Decay: <input id="decay-time" type="number" min=0.0 max=1.0 value=0.2 step=0.05>
-		Release: <input id="release-time" type="number" min=0.0 max=1.0 value=0.2 step=0.05><br>
-		Peak: <input id="peak-volume" type="number" min=0.0 max=1.0 value=0.8 step=0.05>
+		Modulator Frequency: <input id="modulator-freq" type="number" min=1 max=44100 value=440>
+		Modulator Gain: <input id="mod-gain" type="number" min=1 max=100 value=30><br>
+		Duration: <input id="duration" type="number" min=0.0 step=0.5 value=1.0>
+		Attack: <input id="attack-time" type="number" min=0.0 max=1.0 value=0.0 step=0.05>
+		Decay: <input id="decay-time" type="number" min=0.0 max=1.0 value=0.0 step=0.05>
+		Release: <input id="release-time" type="number" min=0.0 max=1.0 value=0.0 step=0.05><br>
+		Peak: <input id="peak-volume" type="number" min=0.0 max=1.0 value=1.0 step=0.05>
 		Sustain: <input id="sustain-volume" type="number" min=0.0 max=1.0 value=0.5 step=0.05><br>
+
+		<br><br>
+
+		Once you've found a sound that you like, try shaping the volume of the sound with the amplitude options above. You can set the total duration of your sound in seconds (keep in mind, tinysynth is meant for very short sounds - you'll probably want a different editor to combine snippets into longer sounds). Real sounds don't play at a constant volume though - they ramp up, play for a while, and fall off. The amplitude settings take values between 0 and 1 to create a standard envelope; the time values are automatically scaled so you can change the total duration without changing all the settings individually.
+
+		<br>
+
+		The envelope looks like this: <br>
+		The volume starts at zero, and rises linearly to Peak over Attack * duration seconds. <br>
+		After peaking, the volume drops to Sustain over Decay * duration seconds. <br>
+		The volume stays steady at Sustain, and drops back to zero over the last Release * duration seconds.
+
+		<br><br>
+
+		Note: The "Record" button is currently unimplemented. But you are free to download, dissassemble and re-use the javascript source for tinysynth as you please. If you create a sound that you like, you should find it's quite easy to reproduce in WebAudio, which might be better than distributing sound files with your game :)
+
 </body>
 <script type="text/javascript">
 // this file implements frequency modulation synthesis tools for creating and
@@ -42,8 +72,8 @@ var carrierType = document.getElementById("carrier-type");
 Carrier.type = carrierType.value;
 carrierType.onchange = function() { Carrier.type = carrierType.value; }
 var carrierFreq = document.getElementById("carrier-freq");
-Carrier.freq = carrierFreq.value;
-carrierFreq.onchange = function() { Carrier.freq = carrierFreq.value; }
+Carrier.frequency.value = carrierFreq.value;
+carrierFreq.onchange = function() { Carrier.frequency.value = carrierFreq.value; }
 
 
 // the modulation frequency
@@ -52,8 +82,8 @@ var modulatorType = document.getElementById("modulator-type");
 Modulator.type = modulatorType.value;
 modulatorType.onchange = function() { Modulator.type = modulatorType.value }
 var modulatorFreq = document.getElementById("modulator-freq");
-Modulator.freq = modulatorFreq.value;
-modulatorFreq.onchange = function() { Modulator.freq = modulatorFreq.value; }
+Modulator.frequency.value = modulatorFreq.value;
+modulatorFreq.onchange = function() { Modulator.frequency.value = modulatorFreq.value; }
 
 // defines a standard envelope: Attack, Decay, Sustain, Release
 // time values in [0,1] will be scaled by duration
@@ -128,7 +158,13 @@ Gain.gain.value = 0.0;
 
 // creating a sound is a simple chain:
 // modulator frequency drives carrier frequency
-Modulator.connect(Carrier.frequency);
+// pipe the modulator through a constant gain to boost the effect a little
+var ModGain = ctx.createGain();
+var modGain = document.getElementById('mod-gain');
+ModGain.gain.value = modGain.value;
+modGain.onchange = function() { ModGain.gain.value = modGain.value; }
+Modulator.connect(ModGain);
+ModGain.connect(Carrier.frequency);
 // volume is applied to resulting sound
 Carrier.connect(Gain);
 // gain output will be piped to speakers or file
